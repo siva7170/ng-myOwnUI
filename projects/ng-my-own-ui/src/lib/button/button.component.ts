@@ -1,7 +1,9 @@
-import { Component, Input } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { ChangeDetectionStrategy, Component, Input, ViewEncapsulation } from '@angular/core';
 
 @Component({
   selector: 'mou-button',
+  imports:[CommonModule],
   template: ` <button
     [ngClass]="['mou-button', type, styleClass]"
     [disabled]="disabled"
@@ -9,8 +11,9 @@ import { Component, Input } from '@angular/core';
   >
     {{ label }}
   </button>`,
-  styleUrls: ['./button.component.scss'],
-  standalone: false
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  encapsulation: ViewEncapsulation.None
 })
 export class ButtonComponent {
   @Input() label: string = 'Click';
