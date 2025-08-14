@@ -185,7 +185,6 @@ export class NodeComponent {
 
   startConnection(event: MouseEvent, anchor: 'left' | 'right') {
     event.stopPropagation();
-
     const rect = (event.target as HTMLElement).getBoundingClientRect();
     const container = (this.el.nativeElement as HTMLElement).parentElement;
     const containerRect = container?.getBoundingClientRect();
@@ -213,12 +212,21 @@ export class NodeComponent {
   standalone: true,
   imports: [CommonModule, NodeComponent],
   template: `
-    <div class="node-editor-container"  #editorContainer>
-         <svg class="connection-lines">
+    <div class="node-editor-container"  #editorContainer   
+    (mousedown)="startPan($event)"
+    (mousemove)="onPan($event)"
+    (mouseup)="endPan()"
+    (mouseleave)="endPan()">
+     <div class="workspace" [style.transform]="getWorkspaceTransform()">
+<svg class="connection-lines">
           <!-- existing connections -->
             <path *ngFor="let conn of connections"
                   [attr.d]="getBezierPath(getAnchorPosition(conn.from), getAnchorPosition(conn.to))"
-                  stroke="black" fill="transparent" stroke-width="2" 
+                  stroke="black" 
+                  fill="none" 
+                  stroke-width="3" 
+                  style="cursor: pointer;"
+                  pointer-events="stroke"
                   (contextmenu)="onConnectionRightClick($event, conn)"/>
 
             <!-- temporary dragging connection -->
@@ -260,6 +268,8 @@ export class NodeComponent {
                 [ngTemplateOutletContext]="{ label: node.label, header: node.header, type: node.type, subType: node.subType }">
         </ng-container>
       </node-block>
+     </div>
+         
       <button class="add-node-btn" (click)="addNode('process')">+ Add Node</button>
     </div>
   `,
@@ -311,8 +321,6 @@ export class NodeEditorComponent {
 
   private templateMap = new Map<string, TemplateRef<any>>();
 
-
-
   contextMenu = {
     visible: false,
     x: 0,
@@ -322,6 +330,11 @@ export class NodeEditorComponent {
       | { type: 'connection'; from: { nodeId: string; anchor: 'left' | 'right' }, to: { nodeId: string; anchor: 'left' | 'right' } }
       | null
   };
+
+  workspaceOffset = { x: 0, y: 0 };
+  private panStart = { x: 0, y: 0 };
+  private initialOffset = { x: 0, y: 0 };
+  private isPanning = false;
 
   @HostListener('document:click')
   hideContextMenu() {
@@ -383,6 +396,7 @@ export class NodeEditorComponent {
       start: evt.point,
       end: evt.point
     };
+    console.log('beginConnection', this.tempLine);
     this.cdr.markForCheck();
   }
 
@@ -435,7 +449,7 @@ export class NodeEditorComponent {
     this.cdr.markForCheck();
   }
 
-    onNodeRightClick(event: MouseEvent, nodeId: string) {
+  onNodeRightClick(event: MouseEvent, nodeId: string) {
     event.preventDefault();
     this.contextMenu = {
       visible: true,
@@ -464,7 +478,7 @@ export class NodeEditorComponent {
         this.nodes = this.nodes.filter(n => n.id !== nodeId);
         this.connections = this.connections.filter(
           c => c.from.nodeId !== nodeId &&
-               c.to.nodeId !== nodeId
+            c.to.nodeId !== nodeId
         );
       }
     }
@@ -480,6 +494,39 @@ export class NodeEditorComponent {
     }
 
     this.contextMenu.visible = false;
+  }
+
+  startPan(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    console.log('startPan', target);
+    // Prevent panning when clicking nodes or connections
+    if (target.closest('.node-block') || target.closest('.connection-path')) {
+      return;
+    }
+
+    this.isPanning = true;
+    this.panStart = { x: event.clientX, y: event.clientY };
+    this.initialOffset = { ...this.workspaceOffset };
+  }
+
+  onPan(event: MouseEvent) {
+    if (!this.isPanning) return;
+
+    const dx = event.clientX - this.panStart.x;
+    const dy = event.clientY - this.panStart.y;
+
+    this.workspaceOffset = {
+      x: this.initialOffset.x + dx,
+      y: this.initialOffset.y + dy
+    };
+  }
+
+  endPan() {
+    this.isPanning = false;
+  }
+
+  getWorkspaceTransform() {
+    return `translate(${this.workspaceOffset.x}px, ${this.workspaceOffset.y}px)`;
   }
 }
 

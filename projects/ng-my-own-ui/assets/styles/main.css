@@ -63,7 +63,17 @@
   border: 1px solid #ccc;
   position: relative;
   user-select: none;
+  overflow: hidden ;
 }
+.node-editor-container:active {
+  cursor: grabbing;
+}
+.workspace {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
 .context-menu {
   position: fixed;
   background: #fff;
