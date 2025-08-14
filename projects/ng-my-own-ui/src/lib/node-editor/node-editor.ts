@@ -217,8 +217,10 @@ export class NodeComponent {
     (mousemove)="onPan($event)"
     (mouseup)="endPan()"
     (mouseleave)="endPan()">
-     <div class="workspace" [style.transform]="getWorkspaceTransform()">
-<svg class="connection-lines">
+     <div class="workspace" [style.transform]="getWorkspaceTransform()"   [style.width.px]="getWorkspaceSize().width"
+  [style.height.px]="getWorkspaceSize().height" #editorWorkspace>
+<svg class="connection-lines" [attr.width]="getWorkspaceSize().width"
+    [attr.height]="getWorkspaceSize().height" style="overflow: visible">
           <!-- existing connections -->
             <path *ngFor="let conn of connections"
                   [attr.d]="getBezierPath(getAnchorPosition(conn.from), getAnchorPosition(conn.to))"
@@ -302,6 +304,7 @@ export class NodeComponent {
 })
 export class NodeEditorComponent {
   @ViewChild('editorContainer') containerRef!: ElementRef;
+  @ViewChild('editorWorkspace') workspaceRef!: ElementRef;
 
   @Input() containerHeight = 300;
 
@@ -335,6 +338,31 @@ export class NodeEditorComponent {
   private panStart = { x: 0, y: 0 };
   private initialOffset = { x: 0, y: 0 };
   private isPanning = false;
+  workspaceBounds = {
+    minX: -1000,
+    minY: -1000,
+    maxX: 1000,
+    maxY: 1000
+  };
+
+
+  editorWidth = 0;
+  editorHeight = 0;
+
+  updateWorkspaceBounds(newX: number, newY: number) {
+    const padding = 200; // extra space beyond nodes
+    if (newX - padding < this.workspaceBounds.minX) this.workspaceBounds.minX = newX - padding;
+    if (newY - padding < this.workspaceBounds.minY) this.workspaceBounds.minY = newY - padding;
+    if (newX + padding > this.workspaceBounds.maxX) this.workspaceBounds.maxX = newX + padding;
+    if (newY + padding > this.workspaceBounds.maxY) this.workspaceBounds.maxY = newY + padding;
+  }
+
+  getWorkspaceSize() {
+    return {
+      width: this.workspaceBounds.maxX - this.workspaceBounds.minX,
+      height: this.workspaceBounds.maxY - this.workspaceBounds.minY
+    };
+  }
 
   @HostListener('document:click')
   hideContextMenu() {
@@ -353,6 +381,8 @@ export class NodeEditorComponent {
 
   ngAfterViewInit() {
     this.renderer.setStyle(this.containerRef.nativeElement, 'height', this.containerHeight + 'px');
+    this.editorWidth = this.containerRef.nativeElement.clientWidth;
+    this.editorHeight = this.containerRef.nativeElement.clientHeight;
   }
 
   getNodeTemplate(type: string, subType?: string): TemplateRef<any> | null {
@@ -366,14 +396,13 @@ export class NodeEditorComponent {
     const position = { x: 150 + this.nodes.length * 100, y: 150 };
     this.nodes.push({ id, label, type, position, header: header });
     this.cdr.markForCheck();
-    this.cdr.markForCheck();
   }
 
   getAnchorPosition(ref: { nodeId: string; anchor: 'left' | 'right' }): Point | null {
     const el = document.getElementById(`connector-${ref.nodeId}-${ref.anchor}`);
     if (!el) return null;
     const rect = el.getBoundingClientRect();
-    const containerRect = this.containerRef.nativeElement.getBoundingClientRect();
+    const containerRect = this.workspaceRef.nativeElement.getBoundingClientRect();
     return {
       x: rect.left + rect.width / 2 - containerRect.left,
       y: rect.top + rect.height / 2 - containerRect.top
@@ -396,14 +425,14 @@ export class NodeEditorComponent {
       start: evt.point,
       end: evt.point
     };
-    console.log('beginConnection', this.tempLine);
     this.cdr.markForCheck();
   }
 
   @HostListener('document:mousemove', ['$event'])
   onMouseMove(event: MouseEvent) {
     if (this.tempLine) {
-      const rect = this.containerRef.nativeElement.getBoundingClientRect();
+      console.log('onMouseMove', this.tempLine);
+      const rect = this.workspaceRef.nativeElement.getBoundingClientRect();
       this.tempLine.end = {
         x: event.clientX - rect.left,
         y: event.clientY - rect.top
@@ -519,6 +548,17 @@ export class NodeEditorComponent {
       x: this.initialOffset.x + dx,
       y: this.initialOffset.y + dy
     };
+
+    
+  // Determine new visible top-left and bottom-right
+  const topLeftX = -this.workspaceOffset.x;
+  const topLeftY = -this.workspaceOffset.y;
+  const bottomRightX = topLeftX + this.editorWidth;
+  const bottomRightY = topLeftY + this.editorHeight;
+
+  // Update bounds using both corners so workspace expands if needed
+  this.updateWorkspaceBounds(topLeftX, topLeftY);
+  this.updateWorkspaceBounds(bottomRightX, bottomRightY);
   }
 
   endPan() {
