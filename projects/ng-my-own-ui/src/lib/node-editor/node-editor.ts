@@ -6,9 +6,9 @@ type NodeType = 'input' | 'process' | 'output';
 export interface NodeData {
   id: string;
   label: string;
-  header:string;
+  header: string;
   type: NodeType;
-  subType?: string;  
+  subType?: string;
   position: { x: number; y: number };
 }
 
@@ -145,8 +145,8 @@ export class NodeComponent {
     this.nodeClass = `node-type-${this.type}`;
   }
 
-   ngAfterContentInit(): void {
-     this.nodeClass = `node-type-${this.type}`;
+  ngAfterContentInit(): void {
+    this.nodeClass = `node-type-${this.type}`;
   }
 
   onMouseDown(event: MouseEvent) {
@@ -165,15 +165,19 @@ export class NodeComponent {
 
   onMouseMove = (event: MouseEvent) => {
     if (!this.isDragging) return;
+
+    const container = (this.el.nativeElement as HTMLElement).parentElement;
+    const containerRect = container?.getBoundingClientRect();
+
     this.position = {
-      x: event.clientX - this.offset.x,
-      y: event.clientY - this.offset.y
+      x: event.clientX - containerRect!.left - this.offset.x,
+      y: event.clientY - containerRect!.top - this.offset.y
     };
     this.cdr.detectChanges();
   };
 
   onMouseUp = (event: MouseEvent) => {
-     ((event.target as HTMLElement).parentNode as HTMLElement).classList.remove('node-dragging');
+    ((event.target as HTMLElement).parentNode as HTMLElement).classList.remove('node-dragging');
     this.isDragging = false;
     document.removeEventListener('mousemove', this.onMouseMove);
     document.removeEventListener('mouseup', this.onMouseUp);
@@ -181,10 +185,14 @@ export class NodeComponent {
 
   startConnection(event: MouseEvent, anchor: 'left' | 'right') {
     event.stopPropagation();
+
     const rect = (event.target as HTMLElement).getBoundingClientRect();
+    const container = (this.el.nativeElement as HTMLElement).parentElement;
+    const containerRect = container?.getBoundingClientRect();
+
     const point = {
-      x: rect.left + rect.width / 2,
-      y: rect.top + rect.height / 2
+      x: rect.left + rect.width / 2 - containerRect!.left,
+      y: rect.top + rect.height / 2 - containerRect!.top
     };
     this.startConnect.emit({ nodeId: this.id, anchor, point });
   }
@@ -207,7 +215,17 @@ export class NodeComponent {
   template: `
     <div class="node-editor-container"  #editorContainer>
          <svg class="connection-lines">
-        <line *ngFor="let conn of connections"
+          <!-- existing connections -->
+            <path *ngFor="let conn of connections"
+                  [attr.d]="getBezierPath(getAnchorPosition(conn.from), getAnchorPosition(conn.to))"
+                  stroke="black" fill="transparent" stroke-width="2" 
+                  (contextmenu)="onConnectionRightClick($event, conn)"/>
+
+            <!-- temporary dragging connection -->
+            <path *ngIf="tempLine"
+                  [attr.d]="getBezierPath(tempLine.start, tempLine.end)"
+                  stroke="gray" stroke-dasharray="4" fill="transparent" stroke-width="2"/>
+        <!-- <line *ngFor="let conn of connections"
               [attr.x1]="getAnchorPosition(conn.from)?.x"
               [attr.y1]="getAnchorPosition(conn.from)?.y"
               [attr.x2]="getAnchorPosition(conn.to)?.x"
@@ -219,8 +237,14 @@ export class NodeComponent {
               [attr.y1]="tempLine.start.y"
               [attr.x2]="tempLine.end.x"
               [attr.y2]="tempLine.end.y"
-              stroke="gray" stroke-dasharray="4" stroke-width="2"/>
+              stroke="gray" stroke-dasharray="4" stroke-width="2"/> -->
       </svg>
+      <div *ngIf="contextMenu.visible"
+        class="context-menu"
+        [style.left.px]="contextMenu.x"
+        [style.top.px]="contextMenu.y">
+        <button (click)="deleteTarget()">Delete</button>
+      </div>
        <node-block
         *ngFor="let node of nodes"
         [id]="node.id"
@@ -229,6 +253,7 @@ export class NodeComponent {
         [position]="node.position"
         (startConnect)="beginConnection($event)"
         (completeConnect)="completeConnection(node.id, $event)"
+        (contextmenu)="onNodeRightClick($event, node.id)"
         >
           <ng-container *ngIf="getNodeTemplate(node.type, node.subType) as tmpl"
                 [ngTemplateOutlet]="tmpl"
@@ -286,6 +311,23 @@ export class NodeEditorComponent {
 
   private templateMap = new Map<string, TemplateRef<any>>();
 
+
+
+  contextMenu = {
+    visible: false,
+    x: 0,
+    y: 0,
+    target: null as
+      | { type: 'node'; nodeId: string }
+      | { type: 'connection'; from: { nodeId: string; anchor: 'left' | 'right' }, to: { nodeId: string; anchor: 'left' | 'right' } }
+      | null
+  };
+
+  @HostListener('document:click')
+  hideContextMenu() {
+    this.contextMenu.visible = false;
+  }
+
   constructor(private renderer: Renderer2,
     private cdr: ChangeDetectorRef
   ) { }
@@ -323,6 +365,16 @@ export class NodeEditorComponent {
       x: rect.left + rect.width / 2 - containerRect.left,
       y: rect.top + rect.height / 2 - containerRect.top
     };
+  }
+
+  getBezierPath(start: { x: number; y: number } | null, end: { x: number; y: number } | null): string {
+    if (!start || !end) return '';
+
+    const dx = Math.abs(end.x - start.x) * 0.5;
+    const controlPoint1 = { x: start.x + dx, y: start.y };
+    const controlPoint2 = { x: end.x - dx, y: end.y };
+
+    return `M ${start.x},${start.y} C ${controlPoint1.x},${controlPoint1.y} ${controlPoint2.x},${controlPoint2.y} ${end.x},${end.y}`;
   }
 
   beginConnection(evt: { nodeId: string; anchor: 'left' | 'right'; point: Point }) {
@@ -381,6 +433,53 @@ export class NodeEditorComponent {
     this.tempLine = null;
     this.connectionStart = null;
     this.cdr.markForCheck();
+  }
+
+    onNodeRightClick(event: MouseEvent, nodeId: string) {
+    event.preventDefault();
+    this.contextMenu = {
+      visible: true,
+      x: event.clientX,
+      y: event.clientY,
+      target: { type: 'node', nodeId }
+    };
+  }
+
+  onConnectionRightClick(event: MouseEvent, conn: any) {
+    event.preventDefault();
+    this.contextMenu = {
+      visible: true,
+      x: event.clientX,
+      y: event.clientY,
+      target: { type: 'connection', from: conn.from, to: conn.to }
+    };
+  }
+
+  deleteTarget() {
+    if (!this.contextMenu.target) return;
+
+    if (this.contextMenu.target.type === 'node') {
+      if (this.contextMenu.target.type === 'node') {
+        const nodeId = this.contextMenu.target.nodeId;
+        this.nodes = this.nodes.filter(n => n.id !== nodeId);
+        this.connections = this.connections.filter(
+          c => c.from.nodeId !== nodeId &&
+               c.to.nodeId !== nodeId
+        );
+      }
+    }
+    else if (this.contextMenu.target.type === 'connection') {
+      const target = this.contextMenu.target;
+      this.connections = this.connections.filter(
+        c =>
+          !(c.from.nodeId === target.from.nodeId &&
+            c.from.anchor === target.from.anchor &&
+            c.to.nodeId === target.to.nodeId &&
+            c.to.anchor === target.to.anchor)
+      );
+    }
+
+    this.contextMenu.visible = false;
   }
 }
 
