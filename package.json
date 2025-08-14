@@ -8,7 +8,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "mou-watch":"ng build ng-my-own-ui --watch",
-    "mou-demo-app":"ng serve demo-app -o"
+    "mou-demo-app":"ng serve demo-app -o --port 4201"
   },
   "private": true,
   "dependencies": {

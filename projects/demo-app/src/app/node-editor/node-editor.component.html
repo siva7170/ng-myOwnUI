@@ -1,0 +1,39 @@
+<node-editor [nodes]="nodes" [containerHeight]="450">
+    <ng-template nodeTemplate="input:table" let-label="label">
+        <div class="node-container-inside">
+            <div class="node-label">{{ label }}</div>
+            <div class="node-description">
+                <select class="node-select">
+                    <option>Option 1</option>
+                    <option>Option 2</option>
+                    <option>Option 3</option>
+                </select>
+            </div>
+        </div>
+    </ng-template>
+
+    <ng-template nodeTemplate="process:filter" let-label="label">
+        <div class="custom-process-node">Filtering<br/>{{ label }}</div>
+    </ng-template>
+
+    <ng-template nodeTemplate="process:group" let-label="label">
+        <div class="custom-process-node">Group by<br/>{{ label }}</div>
+    </ng-template>
+
+    <ng-template nodeTemplate="process:order" let-label="label">
+        <div class="custom-process-node">Order by<br/>{{ label }}</div>
+    </ng-template>
+
+    <ng-template nodeTemplate="process:having" let-label="label">
+        <div class="custom-process-node">Having<br/>{{ label }}</div>
+    </ng-template>
+
+
+    <ng-template nodeTemplate="process:projection" let-label="label">
+        <div class="custom-process-node">Projection<br/>{{ label }}</div>
+    </ng-template>
+
+    <ng-template nodeTemplate="output:final" let-label="label">
+        <div class="custom-output-node">{{ label }}</div>
+    </ng-template>
+</node-editor>

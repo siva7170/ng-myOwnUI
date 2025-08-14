@@ -2,17 +2,12 @@
   <div class="sidebar">
     <h2>Menu</h2>
     <ul>
-      <li>Home</li>
-      <li>Profile</li>
-      <li>Settings</li>
+      <li (click)="onMenuClick('button')">Button</li>
+      <li (click)="onMenuClick('node-editor')">Node Editor</li>
     </ul>
   </div>
   <div class="content">
-    <h1>Button</h1>
-    <p>This is the content section that takes up the remaining space.</p>
-    <mou-button [label]="'Button'"></mou-button> 
-    <mou-button [label]="'Button'" [type]="'secondary'"></mou-button>
-    <mou-button [label]="'Button'" [type]="'danger'"></mou-button>
-    <mou-button [label]="'Button'" [disabled]="true"></mou-button> 
-  </div>
+    {{ activeMenu ? 'Active Menu: ' + activeMenu : 'Select a menu' }}
+    <app-button *ngIf="activeMenu === 'button'"></app-button>
+    <app-node-editor *ngIf="activeMenu === 'node-editor'"></app-node-editor>
 </div>

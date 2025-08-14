@@ -4,3 +4,4 @@
 
 
 export * from './lib/button';
+export * from './lib/node-editor';
