@@ -1,0 +1,24 @@
+.toasterContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.toasterForm {
+  background: #f9f9f9;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+}
+
+input,
+textarea,
+select {
+  width: 200px;
+}
+
+button {
+  padding: 6px 12px;
+  margin-top: 10px;
+  cursor: pointer;
+}

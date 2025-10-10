@@ -1,0 +1,76 @@
+<h1>Toaster</h1>
+<p>This is the content section that takes up the remaining space.</p>
+
+<div class="toasterContainer">
+  <div class="toasterForm">
+    <table>
+      <tr>
+        <td>
+          <div>
+            <label>Header:</label><br />
+            <input type="text" [(ngModel)]="header" /><br /><br />
+            <label>Body:</label><br />
+            <textarea [(ngModel)]="body"></textarea><br /><br />
+            <button (click)="showToaster()">Show</button>
+            &nbsp;
+            <button (click)="hideToaster()">Hide</button>
+          </div>
+        </td>
+
+        <td>
+          <div>
+            <label>Type:</label><br />
+            <select [(ngModel)]="type">
+              <option value="info">Info</option>
+              <option value="warning">Warning</option>
+              <option value="success">Success</option>
+              <option value="failure">Failure</option>
+              <option value="unknown">Unknown</option>
+            </select><br /><br />
+
+            <label>Position:</label><br />
+            <select [(ngModel)]="position">
+              <option value="top">Top</option>
+              <option value="top-right">Top-Right</option>
+              <option value="right">Right</option>
+              <option value="bottom-right">Bottom-Right</option>
+              <option value="bottom">Bottom</option>
+              <option value="bottom-left">Bottom-Left</option>
+              <option value="left">Left</option>
+              <option value="top-left">Top-Left</option>
+              <option value="center" disabled>Center</option>
+            </select><br /><br />
+
+            <label>Presence Timer:</label>
+            <input type="number" [(ngModel)]="presenceTimer" /><br />
+            <label>Wait Timer (before presence):</label>
+            <input type="number" [(ngModel)]="waitTimer" /><br />
+
+            <label>Trigger:</label>
+            <input type="radio" [(ngModel)]="trigger" value="auto" /> Auto
+            <input type="radio" [(ngModel)]="trigger" value="manual" /> Manual<br />
+
+            <label>Animate while show:</label>
+            <input type="radio" [(ngModel)]="showAnim" value="fade" /> Fade
+            <input type="radio" [(ngModel)]="showAnim" value="hide" /> Hide<br />
+
+            <label>Animate while hide:</label>
+            <input type="radio" [(ngModel)]="hideAnim" value="fade" /> Fade
+            <input type="radio" [(ngModel)]="hideAnim" value="hide" /> Hide<br />
+
+            <label>Timer freeze on hover:</label>
+            <input type="checkbox" [(ngModel)]="freezeOnHover" /><br />
+
+            <label>Auto Close:</label>
+            <input type="checkbox" [(ngModel)]="autoClose" /><br />
+
+            <label>Close On Click:</label>
+            <input type="checkbox" [(ngModel)]="closeOnClick" /><br />
+          </div>
+        </td>
+      </tr>
+    </table>
+  </div>
+</div>
+<mou-toaster></mou-toaster>
+<!-- <button (click)="showSuccess()">Show Toast</button> -->

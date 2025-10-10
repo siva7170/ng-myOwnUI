@@ -1,13 +1,17 @@
 <div class="container">
   <div class="sidebar">
-    <h2>Menu</h2>
+    <h3>Menu</h3>
     <ul>
       <li (click)="onMenuClick('button')">Button</li>
       <li (click)="onMenuClick('node-editor')">Node Editor</li>
+      <li (click)="onMenuClick('toaster')">Toaster</li>
+      <li (click)="onMenuClick('tooltip')">Tooltip</li>
     </ul>
   </div>
   <div class="content">
     {{ activeMenu ? 'Active Menu: ' + activeMenu : 'Select a menu' }}
     <app-button *ngIf="activeMenu === 'button'"></app-button>
     <app-node-editor *ngIf="activeMenu === 'node-editor'"></app-node-editor>
+    <app-toaster *ngIf="activeMenu === 'toaster'"></app-toaster>
+    <app-tooltip *ngIf="activeMenu === 'tooltip'"></app-tooltip>
 </div>

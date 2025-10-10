@@ -1,9 +1,11 @@
 import { Component, ViewEncapsulation } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { ButtonModule, NodeEditorModule } from 'ng-my-own-ui';
+import { ButtonModule, NodeEditorModule, ToasterModule } from 'ng-my-own-ui';
 import { ButtonComponent } from './button/button.component';
 import { NodeEditorComponent } from './node-editor/node-editor.component';
 import { CommonModule } from '@angular/common';
+import { ToasterComponent } from "./toaster/toaster.component";
+import { TooltipComponent } from "./tooltip/tooltip.component";
 
 @Component({
   selector: 'app-root',
@@ -12,8 +14,11 @@ import { CommonModule } from '@angular/common';
     NodeEditorComponent,
     CommonModule,
     ButtonModule,
-    NodeEditorModule
-  ],
+    NodeEditorModule,
+    ToasterModule,
+    ToasterComponent,
+    TooltipComponent
+],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
