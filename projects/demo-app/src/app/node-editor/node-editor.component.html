@@ -1,39 +1,34 @@
-<node-editor [nodes]="nodes" [containerHeight]="450">
-    <ng-template nodeTemplate="input:table" let-label="label">
-        <div class="node-container-inside">
-            <div class="node-label">{{ label }}</div>
-            <div class="node-description">
-                <select class="node-select">
-                    <option>Option 1</option>
-                    <option>Option 2</option>
-                    <option>Option 3</option>
-                </select>
-            </div>
-        </div>
-    </ng-template>
+<node-editor [nodes]="nodes" [containerHeight]="520">
 
-    <ng-template nodeTemplate="process:filter" let-label="label">
-        <div class="custom-process-node">Filtering<br/>{{ label }}</div>
-    </ng-template>
+  <!-- Input nodes: table selector -->
+  <ng-template nodeTemplate="input:table" let-label="label" let-uv="upstreamValues">
+    <div class="node-inside">
+      <span class="node-sub-label">{{ label }}</span>
+    </div>
+  </ng-template>
 
-    <ng-template nodeTemplate="process:group" let-label="label">
-        <div class="custom-process-node">Group by<br/>{{ label }}</div>
-    </ng-template>
+  <!-- Process: filter -->
+  <ng-template nodeTemplate="process:filter" let-uv="upstreamValues">
+    <div class="node-inside">
+      <div class="uv-title">Upstream values</div>
+      <div class="uv-row" *ngFor="let entry of asEntries(uv)">
+        <span class="uv-key">{{ entry[0] }}</span>
+        <span class="uv-val">{{ entry[1] }}</span>
+      </div>
+      <div class="uv-empty" *ngIf="!hasEntries(uv)">No connections yet</div>
+    </div>
+  </ng-template>
 
-    <ng-template nodeTemplate="process:order" let-label="label">
-        <div class="custom-process-node">Order by<br/>{{ label }}</div>
-    </ng-template>
+  <!-- Output: final result — shows full resolved chain -->
+  <ng-template nodeTemplate="output:final" let-uv="upstreamValues">
+    <div class="node-inside">
+      <div class="uv-title">All resolved values</div>
+      <div class="uv-row" *ngFor="let entry of asEntries(uv)">
+        <span class="uv-key">{{ entry[0] }}</span>
+        <span class="uv-val">{{ entry[1] }}</span>
+      </div>
+      <div class="uv-empty" *ngIf="!hasEntries(uv)">No connections yet</div>
+    </div>
+  </ng-template>
 
-    <ng-template nodeTemplate="process:having" let-label="label">
-        <div class="custom-process-node">Having<br/>{{ label }}</div>
-    </ng-template>
-
-
-    <ng-template nodeTemplate="process:projection" let-label="label">
-        <div class="custom-process-node">Projection<br/>{{ label }}</div>
-    </ng-template>
-
-    <ng-template nodeTemplate="output:final" let-label="label">
-        <div class="custom-output-node">{{ label }}</div>
-    </ng-template>
 </node-editor>
