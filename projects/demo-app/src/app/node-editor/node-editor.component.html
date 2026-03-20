@@ -1,25 +1,39 @@
-<node-editor [nodes]="nodes" [containerHeight]="520">
+<node-editor [nodes]="nodes" [palette]="palette" [containerHeight]="520">
 
-  <!-- Input nodes: table selector -->
+  <!-- ── Input templates ─────────────────────────────────── -->
   <ng-template nodeTemplate="input:table" let-label="label" let-uv="upstreamValues">
     <div class="node-inside">
       <span class="node-sub-label">{{ label }}</span>
     </div>
   </ng-template>
 
-  <!-- Process: filter -->
-  <ng-template nodeTemplate="process:filter" let-uv="upstreamValues">
+  <ng-template nodeTemplate="input:file" let-label="label">
     <div class="node-inside">
-      <div class="uv-title">Upstream values</div>
-      <div class="uv-row" *ngFor="let entry of asEntries(uv)">
-        <span class="uv-key">{{ entry[0] }}</span>
-        <span class="uv-val">{{ entry[1] }}</span>
-      </div>
-      <div class="uv-empty" *ngIf="!hasEntries(uv)">No connections yet</div>
+      <span class="node-sub-label">{{ label }}</span>
     </div>
   </ng-template>
 
-  <!-- Output: final result — shows full resolved chain -->
+  <ng-template nodeTemplate="input:api" let-label="label">
+    <div class="node-inside">
+      <span class="node-sub-label">{{ label }}</span>
+    </div>
+  </ng-template>
+
+  <ng-template nodeTemplate="input:sql" let-label="label">
+    <div class="node-inside">
+      <span class="node-sub-label">{{ label }}</span>
+    </div>
+  </ng-template>
+
+  <!-- ── Process templates ───────────────────────────────── -->
+  <ng-template nodeTemplate="process:filter"     let-uv="upstreamValues"><ng-container *ngTemplateOutlet="processBlock; context: { uv: uv }"></ng-container></ng-template>
+  <ng-template nodeTemplate="process:order"      let-uv="upstreamValues"><ng-container *ngTemplateOutlet="processBlock; context: { uv: uv }"></ng-container></ng-template>
+  <ng-template nodeTemplate="process:group"      let-uv="upstreamValues"><ng-container *ngTemplateOutlet="processBlock; context: { uv: uv }"></ng-container></ng-template>
+  <ng-template nodeTemplate="process:having"     let-uv="upstreamValues"><ng-container *ngTemplateOutlet="processBlock; context: { uv: uv }"></ng-container></ng-template>
+  <ng-template nodeTemplate="process:join"       let-uv="upstreamValues"><ng-container *ngTemplateOutlet="processBlock; context: { uv: uv }"></ng-container></ng-template>
+  <ng-template nodeTemplate="process:projection" let-uv="upstreamValues"><ng-container *ngTemplateOutlet="processBlock; context: { uv: uv }"></ng-container></ng-template>
+
+  <!-- ── Output templates ────────────────────────────────── -->
   <ng-template nodeTemplate="output:final" let-uv="upstreamValues">
     <div class="node-inside">
       <div class="uv-title">All resolved values</div>
@@ -32,3 +46,15 @@
   </ng-template>
 
 </node-editor>
+
+<!-- Shared process-node upstream display -->
+<ng-template #processBlock let-uv="uv">
+  <div class="node-inside">
+    <div class="uv-title">Upstream values</div>
+    <div class="uv-row" *ngFor="let entry of asEntries(uv)">
+      <span class="uv-key">{{ entry[0] }}</span>
+      <span class="uv-val">{{ entry[1] }}</span>
+    </div>
+    <div class="uv-empty" *ngIf="!hasEntries(uv)">No connections yet</div>
+  </div>
+</ng-template>

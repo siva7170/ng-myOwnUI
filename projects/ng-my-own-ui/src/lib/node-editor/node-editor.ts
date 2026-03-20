@@ -8,41 +8,63 @@ import {
 } from '@angular/core';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Field system — public types consumed by host app
+// Field system
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type NodeFieldType = 'text' | 'radio' | 'checkbox' | 'slider' | 'dropdown';
 
 export interface NodeFieldDef {
-  /** Unique key within the node. Used to reference this field's value upstream. */
   key: string;
   type: NodeFieldType;
   label: string;
-  /** Current raw value. Mutated in-place when the user changes the field. */
   value: any;
-  /** For radio / dropdown: list of choices */
   options?: string[];
-  /** For slider: min / max / step */
   min?: number;
   max?: number;
   step?: number;
-  /**
-   * Optional transform applied before this field's value is exposed downstream.
-   * Defined in the host component (demo-app) and passed in via NodeData.fields.
-   * Signature:  (rawValue: any, upstreamValues: Record<string,any>) => any
-   *
-   * - rawValue        : the current raw value of this specific field
-   * - upstreamValues  : already-resolved flat map of ALL upstream field values
-   *                     so a transform can read other fields to compute its output
-   */
   transform?: (rawValue: any, upstreamValues: Record<string, any>) => any;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Palette system — defined by host app, drives the picker popup
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type NodeType = 'input' | 'process' | 'output';
+
+/**
+ * A single item in the node palette — a "blueprint" for a node.
+ * When the user picks it from the popup, a full NodeData is created from it.
+ */
+export interface NodePaletteItem {
+  /** Displayed name in the picker list */
+  label: string;
+  /** Optional description shown as a subtitle in the picker */
+  description?: string;
+  /** Which toolbar button reveals this item */
+  type: NodeType;
+  /** Maps to NodeData.subType — selects the ng-template to render */
+  subType?: string;
+  /** Header text on the spawned node card */
+  header: string;
+  /** Pre-defined fields — deep-cloned on spawn so each node instance is independent */
+  fields?: NodeFieldDef[];
+}
+
+/**
+ * A named group of palette items — shown as a collapsible section in the picker.
+ * The group name is editable inline.
+ */
+export interface NodePaletteGroup {
+  /** Display name — editable in the picker UI */
+  name: string;
+  /** Which toolbar button reveals this group */
+  type: NodeType;
+  items: NodePaletteItem[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Core structural types
 // ─────────────────────────────────────────────────────────────────────────────
-
-export type NodeType = 'input' | 'process' | 'output';
 
 export interface NodeData {
   id: string;
@@ -51,7 +73,6 @@ export interface NodeData {
   type: NodeType;
   subType?: string;
   position: { x: number; y: number };
-  /** Field definitions including current values and optional transforms */
   fields?: NodeFieldDef[];
 }
 
@@ -73,8 +94,7 @@ export class NodeTemplateDirective {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NodeFieldsComponent — renders the fields[] array inside a node-block
-// Standalone so it can be imported cleanly into NodeComponent
+// NodeFieldsComponent
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Component({
@@ -86,16 +106,13 @@ export class NodeTemplateDirective {
       <div class="nf-row" *ngFor="let f of fields">
         <label class="nf-label">{{ f.label }}</label>
 
-        <!-- text -->
         <input *ngIf="f.type === 'text'"
-               class="nf-input nf-text"
-               type="text"
+               class="nf-input nf-text" type="text"
                [(ngModel)]="f.value"
                (ngModelChange)="onFieldChange()"
                (mousedown)="$event.stopPropagation()"
                (click)="$event.stopPropagation()"/>
 
-        <!-- dropdown -->
         <select *ngIf="f.type === 'dropdown'"
                 class="nf-input nf-select"
                 [(ngModel)]="f.value"
@@ -105,17 +122,13 @@ export class NodeTemplateDirective {
           <option *ngFor="let opt of f.options" [value]="opt">{{ opt }}</option>
         </select>
 
-        <!-- checkbox -->
         <label *ngIf="f.type === 'checkbox'" class="nf-checkbox-wrap"
                (mousedown)="$event.stopPropagation()"
                (click)="$event.stopPropagation()">
-          <input type="checkbox"
-                 [(ngModel)]="f.value"
-                 (ngModelChange)="onFieldChange()"/>
+          <input type="checkbox" [(ngModel)]="f.value" (ngModelChange)="onFieldChange()"/>
           <span class="nf-checkbox-box" [class.checked]="f.value"></span>
         </label>
 
-        <!-- radio -->
         <div *ngIf="f.type === 'radio'" class="nf-radio-group"
              (mousedown)="$event.stopPropagation()"
              (click)="$event.stopPropagation()">
@@ -129,15 +142,11 @@ export class NodeTemplateDirective {
           </label>
         </div>
 
-        <!-- slider -->
         <div *ngIf="f.type === 'slider'" class="nf-slider-wrap"
              (mousedown)="$event.stopPropagation()"
              (click)="$event.stopPropagation()">
-          <input type="range"
-                 class="nf-slider"
-                 [min]="f.min ?? 0"
-                 [max]="f.max ?? 100"
-                 [step]="f.step ?? 1"
+          <input type="range" class="nf-slider"
+                 [min]="f.min ?? 0" [max]="f.max ?? 100" [step]="f.step ?? 1"
                  [(ngModel)]="f.value"
                  (ngModelChange)="onFieldChange()"/>
           <span class="nf-slider-val">{{ f.value }}</span>
@@ -146,117 +155,302 @@ export class NodeTemplateDirective {
     </div>
   `,
   styles: [`
-    .nf-wrapper {
-      border-top: 1px solid #eee;
-      padding: 6px 8px 4px;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-      min-width: 170px;
-    }
-    .nf-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.75rem;
-    }
-    .nf-label {
-      flex: 0 0 60px;
-      color: #555;
-      font-size: 0.72rem;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .nf-input {
-      flex: 1;
-      font-size: 0.75rem;
-      border: 1px solid #ccc;
-      border-radius: 3px;
-      padding: 2px 4px;
-      outline: none;
-      background: #fafafa;
-      min-width: 0;
-    }
-    .nf-input:focus { border-color: #007bff; background: #fff; }
-    .nf-select { cursor: pointer; }
-
-    /* checkbox */
-    .nf-checkbox-wrap {
-      display: flex;
-      align-items: center;
-      cursor: pointer;
-    }
-    .nf-checkbox-wrap input[type=checkbox] { display: none; }
-    .nf-checkbox-box {
-      width: 14px; height: 14px;
-      border: 1.5px solid #bbb;
-      border-radius: 3px;
-      background: #fff;
-      display: flex; align-items: center; justify-content: center;
-      transition: background 0.15s, border-color 0.15s;
-    }
-    .nf-checkbox-box.checked {
-      background: #007bff;
-      border-color: #007bff;
-    }
-    .nf-checkbox-box.checked::after {
-      content: '';
-      width: 4px; height: 7px;
-      border: 2px solid #fff;
-      border-top: none; border-left: none;
-      transform: rotate(40deg) translateY(-1px);
-      display: block;
-    }
-
-    /* radio */
-    .nf-radio-group {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-    }
-    .nf-radio-opt {
-      display: flex;
-      align-items: center;
-      gap: 3px;
-      font-size: 0.72rem;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-
-    /* slider */
-    .nf-slider-wrap {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      min-width: 0;
-    }
-    .nf-slider {
-      flex: 1;
-      height: 3px;
-      cursor: pointer;
-      accent-color: #007bff;
-      min-width: 0;
-    }
-    .nf-slider-val {
-      font-size: 0.7rem;
-      color: #666;
-      min-width: 24px;
-      text-align: right;
-    }
+    .nf-wrapper { border-top:1px solid #eee; padding:6px 8px 4px; display:flex; flex-direction:column; gap:5px; min-width:170px; }
+    .nf-row { display:flex; align-items:center; gap:6px; font-size:0.75rem; }
+    .nf-label { flex:0 0 60px; color:#555; font-size:0.72rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .nf-input { flex:1; font-size:0.75rem; border:1px solid #ccc; border-radius:3px; padding:2px 4px; outline:none; background:#fafafa; min-width:0; }
+    .nf-input:focus { border-color:#007bff; background:#fff; }
+    .nf-select { cursor:pointer; }
+    .nf-checkbox-wrap { display:flex; align-items:center; cursor:pointer; }
+    .nf-checkbox-wrap input[type=checkbox] { display:none; }
+    .nf-checkbox-box { width:14px; height:14px; border:1.5px solid #bbb; border-radius:3px; background:#fff; display:flex; align-items:center; justify-content:center; transition:background 0.15s,border-color 0.15s; }
+    .nf-checkbox-box.checked { background:#007bff; border-color:#007bff; }
+    .nf-checkbox-box.checked::after { content:''; width:4px; height:7px; border:2px solid #fff; border-top:none; border-left:none; transform:rotate(40deg) translateY(-1px); display:block; }
+    .nf-radio-group { display:flex; flex-wrap:wrap; gap:4px; }
+    .nf-radio-opt { display:flex; align-items:center; gap:3px; font-size:0.72rem; cursor:pointer; white-space:nowrap; }
+    .nf-slider-wrap { flex:1; display:flex; align-items:center; gap:5px; min-width:0; }
+    .nf-slider { flex:1; height:3px; cursor:pointer; accent-color:#007bff; min-width:0; }
+    .nf-slider-val { font-size:0.7rem; color:#666; min-width:24px; text-align:right; }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class NodeFieldsComponent {
   @Input() fields: NodeFieldDef[] = [];
   @Output() fieldChange = new EventEmitter<void>();
-
-  /** Unique suffix to avoid radio name collisions when multiple nodes share a key */
   instanceId = Math.random().toString(36).substring(2, 7);
+  onFieldChange() { this.fieldChange.emit(); }
+}
 
-  onFieldChange() {
-    this.fieldChange.emit();
+// ─────────────────────────────────────────────────────────────────────────────
+// NodePickerComponent — searchable popup that appears when toolbar btn clicked
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Component({
+  selector: 'node-picker',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
+  template: `
+    <!-- No backdrop div — picker is a direct child of the editor container
+         which is position:relative. Outside-clicks are handled by the editor's
+         onEditorClick. The panel itself stops all pointer/wheel events so
+         the canvas underneath is unaffected. -->
+    <div class="picker-panel"
+         [class.picker-input]="nodeType === 'input'"
+         [class.picker-process]="nodeType === 'process'"
+         [class.picker-output]="nodeType === 'output'"
+         [style.max-height.px]="maxPanelHeight"
+         (mousedown)="$event.stopPropagation()"
+         (click)="$event.stopPropagation()">
+
+      <!-- Header -->
+      <div class="picker-header">
+        <span class="picker-title">
+          <span class="picker-type-dot" [class]="'dot-' + nodeType"></span>
+          Add {{ nodeType | titlecase }} Node
+        </span>
+        <button class="picker-close" (click)="close.emit()">✕</button>
+      </div>
+
+      <!-- Search -->
+      <div class="picker-search-wrap">
+        <span class="picker-search-icon">⌕</span>
+        <input #searchInput
+               class="picker-search"
+               type="text"
+               placeholder="Search nodes…"
+               [(ngModel)]="searchQuery"
+               (ngModelChange)="onSearch()"
+               (mousedown)="$event.stopPropagation()"
+               (keydown.escape)="close.emit()"/>
+        <button *ngIf="searchQuery" class="picker-clear" (click)="clearSearch()">✕</button>
+      </div>
+
+      <!-- Groups — wheel events stopped here so canvas zoom is unaffected -->
+      <div class="picker-scroll" (wheel)="$event.stopPropagation()">
+        <ng-container *ngFor="let group of filteredGroups">
+          <div class="picker-group" *ngIf="group.visibleItems.length">
+
+            <!-- Group header with editable name -->
+            <div class="picker-group-header" (click)="group.collapsed = !group.collapsed">
+              <span class="picker-group-chevron">{{ group.collapsed ? '▶' : '▼' }}</span>
+
+              <span *ngIf="!group.editing"
+                    class="picker-group-name">{{ group.name }}</span>
+              <input *ngIf="group.editing"
+                     class="picker-group-input"
+                     [(ngModel)]="group.name"
+                     (blur)="group.editing = false"
+                     (keydown.enter)="group.editing = false"
+                     (keydown.escape)="group.editing = false"
+                     (mousedown)="$event.stopPropagation()"
+                     (click)="$event.stopPropagation()"/>
+
+              <span class="picker-group-count">{{ group.visibleItems.length }}</span>
+              <button class="picker-group-edit"
+                      title="Rename group"
+                      (click)="beginGroupRename(group, $event)">✎</button>
+            </div>
+
+            <!-- Items -->
+            <div class="picker-items" *ngIf="!group.collapsed">
+              <div class="picker-item"
+                   *ngFor="let item of group.visibleItems"
+                   (click)="selectItem(item)"
+                   [innerHTML]="highlightMatch(item.label, searchQuery)">
+              </div>
+            </div>
+          </div>
+        </ng-container>
+
+        <div class="picker-empty" *ngIf="totalVisible === 0">
+          No nodes match "{{ searchQuery }}"
+        </div>
+      </div>
+    </div>
+  `,
+  styles: [`
+    .picker-panel {
+      position: absolute;
+      width: 280px;
+      /* max-height is set dynamically via [style.max-height.px] binding */
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 8px 28px rgba(0,0,0,0.18);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      font-size: 0.82rem;
+      z-index: 99999;
+    }
+    /* colour-coded top border per type */
+    .picker-input   { border-top: 3px solid #28a745; }
+    .picker-process { border-top: 3px solid #007bff; }
+    .picker-output  { border-top: 3px solid #dc3545; }
+
+    /* Header */
+    .picker-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 10px 6px;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .picker-title { display:flex; align-items:center; gap:6px; font-weight:600; font-size:0.85rem; }
+    .picker-type-dot { width:8px; height:8px; border-radius:50%; display:inline-block; }
+    .dot-input   { background:#28a745; }
+    .dot-process { background:#007bff; }
+    .dot-output  { background:#dc3545; }
+    .picker-close {
+      background:none; border:none; cursor:pointer; font-size:0.9rem;
+      color:#aaa; padding:2px 4px; border-radius:3px; line-height:1;
+    }
+    .picker-close:hover { color:#333; background:#f5f5f5; }
+
+    /* Search */
+    .picker-search-wrap {
+      display:flex; align-items:center; gap:4px;
+      padding:6px 8px; border-bottom:1px solid #f0f0f0;
+    }
+    .picker-search-icon { color:#aaa; font-size:1rem; line-height:1; }
+    .picker-search {
+      flex:1; border:none; outline:none; font-size:0.8rem;
+      background:transparent; color:#333;
+    }
+    .picker-clear {
+      background:none; border:none; cursor:pointer; color:#aaa;
+      font-size:0.75rem; padding:0 2px; line-height:1;
+    }
+    .picker-clear:hover { color:#333; }
+
+    /* Scroll area */
+    .picker-scroll { flex:1; overflow-y:auto; padding:4px 0; }
+
+    /* Group */
+    .picker-group { margin-bottom:2px; }
+    .picker-group-header {
+      display:flex; align-items:center; gap:5px;
+      padding:5px 10px; cursor:pointer;
+      color:#555; font-size:0.76rem; font-weight:600;
+      letter-spacing:0.03em; text-transform:uppercase;
+      user-select:none;
+    }
+    .picker-group-header:hover { background:#f9f9f9; }
+    .picker-group-chevron { font-size:0.6rem; color:#aaa; width:10px; }
+    .picker-group-name { flex:1; }
+    .picker-group-input {
+      flex:1; border:none; border-bottom:1px solid #007bff;
+      outline:none; font-size:0.76rem; font-weight:600;
+      text-transform:uppercase; letter-spacing:0.03em;
+      background:transparent; color:#555; padding:0;
+    }
+    .picker-group-count {
+      background:#eee; border-radius:8px;
+      padding:0 5px; font-size:0.68rem; color:#888;
+    }
+    .picker-group-edit {
+      background:none; border:none; cursor:pointer;
+      color:#bbb; font-size:0.82rem; padding:0 2px; line-height:1;
+    }
+    .picker-group-edit:hover { color:#007bff; }
+
+    /* Items */
+    .picker-items { padding:2px 0; }
+    .picker-item {
+      padding:6px 12px 6px 24px;
+      cursor:pointer; color:#333;
+      transition:background 0.1s;
+    }
+    .picker-item:hover { background:#f0f6ff; color:#007bff; }
+    /* highlight spans injected by highlightMatch() */
+    .picker-item :global(.hl) {
+      background:#fff3b0; border-radius:2px; font-weight:600;
+    }
+
+    .picker-empty {
+      text-align:center; color:#bbb; font-size:0.78rem;
+      padding:20px 10px; font-style:italic;
+    }
+  `],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class NodePickerComponent implements OnInit {
+  @Input() nodeType!: NodeType;
+  @Input() groups: NodePaletteGroup[] = [];
+  /** Pixel position (container-relative) where the panel should appear */
+  @Input() anchorX = 0;
+  @Input() anchorY = 0;
+  /** Container dimensions — used to clamp panel height */
+  @Input() containerW = 0;
+  @Input() containerH = 0;
+
+  @Output() pick  = new EventEmitter<NodePaletteItem>();
+  @Output() close = new EventEmitter<void>();
+
+  @ViewChild('searchInput') searchInputRef!: ElementRef;
+
+  searchQuery = '';
+
+  filteredGroups: Array<NodePaletteGroup & { visibleItems: NodePaletteItem[]; collapsed: boolean; editing: boolean }> = [];
+
+  get totalVisible() { return this.filteredGroups.reduce((s, g) => s + g.visibleItems.length, 0); }
+
+  /**
+   * Max height for the panel — keeps it inside the container vertically.
+   * anchorY is the top edge of the panel; we allow 16px bottom margin.
+   */
+  get maxPanelHeight(): number {
+    const available = this.containerH - this.anchorY - 16;
+    return Math.max(160, Math.min(available, 480));
+  }
+
+  ngOnInit() {
+    this.buildFilteredGroups();
+    // Focus search box after render
+    setTimeout(() => this.searchInputRef?.nativeElement.focus(), 50);
+  }
+
+  private buildFilteredGroups() {
+    const q = this.searchQuery.toLowerCase().trim();
+    this.filteredGroups = this.groups
+      .filter(g => g.type === this.nodeType)
+      .map(g => ({
+        ...g,
+        visibleItems: g.items.filter(item =>
+          !q || item.label.toLowerCase().includes(q) || (item.description ?? '').toLowerCase().includes(q)
+        ),
+        collapsed: false,
+        editing: false,
+      }));
+  }
+
+  onSearch() { this.buildFilteredGroups(); }
+  clearSearch() { this.searchQuery = ''; this.buildFilteredGroups(); }
+
+  selectItem(item: NodePaletteItem) { this.pick.emit(item); }
+
+  beginGroupRename(group: any, event: MouseEvent) {
+    event.stopPropagation();
+    group.editing = true;
+    const btn = event.currentTarget as HTMLElement;
+    setTimeout(() => {
+      const header = btn.closest('.picker-group-header');
+      const input = header?.querySelector<HTMLInputElement>('.picker-group-input');
+      input?.focus();
+      input?.select();
+    }, 20);
+  }
+
+  /** Wraps matching substring in a <span class="hl"> for highlighting */
+  highlightMatch(label: string, query: string): string {
+    if (!query.trim()) return label;
+    const idx = label.toLowerCase().indexOf(query.toLowerCase());
+    if (idx < 0) return label;
+    return (
+      label.slice(0, idx) +
+      `<span style="background:#fff3b0;border-radius:2px;font-weight:600">` +
+      label.slice(idx, idx + query.length) +
+      `</span>` +
+      label.slice(idx + query.length)
+    );
   }
 }
 
@@ -275,80 +469,36 @@ export class NodeFieldsComponent {
          [style.left.px]="position.x"
          [style.top.px]="position.y"
          (mousedown)="onMouseDown($event)">
-
       <div class="node-header">{{ header }}</div>
-
-      <!-- Fields rendered by NodeFieldsComponent above custom template content -->
-      <node-fields
-        *ngIf="fields && fields.length"
-        [fields]="fields"
-        (fieldChange)="onFieldChanged()">
+      <node-fields *ngIf="fields && fields.length"
+                   [fields]="fields"
+                   (fieldChange)="onFieldChanged()">
       </node-fields>
-
       <div class="node-content"><ng-content></ng-content></div>
-
       <div class="connector left"
            *ngIf="type !== 'input'"
            [attr.id]="'connector-' + id + '-left'"
-           (mousedown)="startConnection($event, 'left')">
-      </div>
-
+           (mousedown)="startConnection($event, 'left')"></div>
       <div class="connector right"
            *ngIf="type !== 'output'"
            [attr.id]="'connector-' + id + '-right'"
-           (mousedown)="startConnection($event, 'right')">
-      </div>
+           (mousedown)="startConnection($event, 'right')"></div>
     </div>
   `,
   styles: [`
-    .node-block {
-      position: absolute;
-      min-width: 200px;
-      background: #ffffff;
-      border: 1px solid #9f9f9f;
-      border-radius: 4px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      padding: 0;
-      box-sizing: border-box;
-      z-index: 1;
-    }
-    .node-block.node-type-input   { border-top: 3px solid #28a745; }
-    .node-block.node-type-output  { border-top: 3px solid #dc3545; }
-    .node-block.node-type-process { border-top: 3px solid #007bff; }
-
-    .node-block.node-selected {
-      outline: 2px solid #007bff;
-      outline-offset: 2px;
-      box-shadow: 0 0 0 3px rgba(0,123,255,0.25);
-    }
-    .node-header {
-      background: #e9e9e9;
-      padding: 0.25rem 0.5rem;
-      font-weight: 700;
-      border-bottom: 1px solid #ccc;
-      border-radius: 4px 4px 0 0;
-      font-size: 0.8rem;
-      text-align: center;
-      cursor: move;
-      user-select: none;
-    }
-    .node-content { padding: 8px; }
-    .connector {
-      width: 12px; height: 12px;
-      position: absolute;
-      top: 50%;
-      cursor: crosshair;
-      border-radius: 50%;
-      border: 2px solid #fff;
-      box-sizing: border-box;
-      z-index: 2;
-      transition: transform 0.1s;
-    }
-    .connector.left  { left: -7px;  transform: translateY(-50%); background: #28a745; }
-    .connector.right { right: -7px; transform: translateY(-50%); background: #007bff; }
-    .connector.left:hover  { transform: translateY(-50%) scale(1.35); }
-    .connector.right:hover { transform: translateY(-50%) scale(1.35); }
-    .node-dragging { box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
+    .node-block { position:absolute; min-width:200px; background:#fff; border:1px solid #9f9f9f; border-radius:4px; box-shadow:0 2px 4px rgba(0,0,0,0.1); padding:0; box-sizing:border-box; z-index:1; }
+    .node-block.node-type-input   { border-top:3px solid #28a745; }
+    .node-block.node-type-output  { border-top:3px solid #dc3545; }
+    .node-block.node-type-process { border-top:3px solid #007bff; }
+    .node-block.node-selected { outline:2px solid #007bff; outline-offset:2px; box-shadow:0 0 0 3px rgba(0,123,255,0.25); }
+    .node-header { background:#e9e9e9; padding:0.25rem 0.5rem; font-weight:700; border-bottom:1px solid #ccc; border-radius:4px 4px 0 0; font-size:0.8rem; text-align:center; cursor:move; user-select:none; }
+    .node-content { padding:8px; }
+    .connector { width:12px; height:12px; position:absolute; top:50%; cursor:crosshair; border-radius:50%; border:2px solid #fff; box-sizing:border-box; z-index:2; transition:transform 0.1s; }
+    .connector.left  { left:-7px;  transform:translateY(-50%); background:#28a745; }
+    .connector.right { right:-7px; transform:translateY(-50%); background:#007bff; }
+    .connector.left:hover  { transform:translateY(-50%) scale(1.35); }
+    .connector.right:hover { transform:translateY(-50%) scale(1.35); }
+    .node-dragging { box-shadow:0 4px 14px rgba(0,0,0,0.35); }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -366,7 +516,6 @@ export class NodeComponent implements OnInit, OnDestroy {
   @Output() completeConnect = new EventEmitter<'left' | 'right'>();
   @Output() positionChange  = new EventEmitter<{ nodeId: string; position: Point }>();
   @Output() nodeClick       = new EventEmitter<string>();
-  /** Emitted whenever any field value changes — lets the editor recompute upstream values */
   @Output() fieldChange     = new EventEmitter<string>();
 
   nodeClass = '';
@@ -375,30 +524,23 @@ export class NodeComponent implements OnInit, OnDestroy {
 
   constructor(private el: ElementRef, private cdr: ChangeDetectorRef) {}
 
-  ngOnInit() {
-    this.nodeClass = `node-type-${this.type}`;
-  }
+  ngOnInit() { this.nodeClass = `node-type-${this.type}`; }
 
   ngOnDestroy() {
     document.removeEventListener('mousemove', this.onMouseMove);
     document.removeEventListener('mouseup',   this.onMouseUp);
   }
 
-  onFieldChanged() {
-    this.fieldChange.emit(this.id);
-  }
+  onFieldChanged() { this.fieldChange.emit(this.id); }
 
   onMouseDown(event: MouseEvent) {
     const target = event.target as HTMLElement;
     if (target.classList.contains('connector')) { event.stopPropagation(); return; }
     if (!target.classList.contains('node-header')) return;
-
     event.stopPropagation();
     this.isDragging = true;
     this.offset = { x: event.offsetX, y: event.offsetY };
-
-    const nodeEl = target.closest('.node-block') as HTMLElement;
-    nodeEl?.classList.add('node-dragging');
+    (target.closest('.node-block') as HTMLElement)?.classList.add('node-dragging');
     document.addEventListener('mousemove', this.onMouseMove);
     document.addEventListener('mouseup',   this.onMouseUp);
   }
@@ -408,11 +550,8 @@ export class NodeComponent implements OnInit, OnDestroy {
     const workspace = (this.el.nativeElement as HTMLElement).parentElement;
     const rect = workspace?.getBoundingClientRect();
     if (!rect) return;
-
-    const scaleStr = workspace?.style.transform ?? '';
-    const scaleMatch = scaleStr.match(/scale\(([^)]+)\)/);
+    const scaleMatch = (workspace?.style.transform ?? '').match(/scale\(([^)]+)\)/);
     const scale = scaleMatch ? parseFloat(scaleMatch[1]) : 1;
-
     this.position = {
       x: (event.clientX - rect.left) / scale - this.offset.x / scale,
       y: (event.clientY - rect.top)  / scale - this.offset.y / scale,
@@ -424,37 +563,33 @@ export class NodeComponent implements OnInit, OnDestroy {
   onMouseUp = () => {
     if (!this.isDragging) return;
     this.isDragging = false;
-    const nodeEl = (this.el.nativeElement as HTMLElement).querySelector('.node-block');
-    nodeEl?.classList.remove('node-dragging');
+    (this.el.nativeElement as HTMLElement).querySelector('.node-block')?.classList.remove('node-dragging');
     document.removeEventListener('mousemove', this.onMouseMove);
     document.removeEventListener('mouseup',   this.onMouseUp);
   };
 
   startConnection(event: MouseEvent, anchor: 'left' | 'right') {
     event.stopPropagation();
-    const connectorEl = event.target as HTMLElement;
-    const rect = connectorEl.getBoundingClientRect();
+    const rect   = (event.target as HTMLElement).getBoundingClientRect();
     const workspace = (this.el.nativeElement as HTMLElement).parentElement;
     const wsRect = workspace?.getBoundingClientRect();
     if (!wsRect) return;
-
-    const scaleStr = workspace?.style.transform ?? '';
-    const scaleMatch = scaleStr.match(/scale\(([^)]+)\)/);
+    const scaleMatch = (workspace?.style.transform ?? '').match(/scale\(([^)]+)\)/);
     const scale = scaleMatch ? parseFloat(scaleMatch[1]) : 1;
-
-    const point: Point = {
-      x: (rect.left + rect.width  / 2 - wsRect.left) / scale,
-      y: (rect.top  + rect.height / 2 - wsRect.top)  / scale,
-    };
-    this.startConnect.emit({ nodeId: this.id, anchor, point });
+    this.startConnect.emit({
+      nodeId: this.id, anchor,
+      point: {
+        x: (rect.left + rect.width  / 2 - wsRect.left) / scale,
+        y: (rect.top  + rect.height / 2 - wsRect.top)  / scale,
+      }
+    });
   }
 
   @HostListener('mouseup', ['$event'])
   handleMouseUp(event: MouseEvent) {
     const target = event.target as HTMLElement;
     if (target.classList.contains('connector')) {
-      const side = target.classList.contains('left') ? 'left' : 'right';
-      this.completeConnect.emit(side);
+      this.completeConnect.emit(target.classList.contains('left') ? 'left' : 'right');
     } else {
       this.nodeClick.emit(this.id);
     }
@@ -468,7 +603,7 @@ export class NodeComponent implements OnInit, OnDestroy {
 @Component({
   selector: 'node-editor',
   standalone: true,
-  imports: [CommonModule, NodeComponent],
+  imports: [CommonModule, NodeComponent, NodePickerComponent],
   template: `
     <div class="node-editor-container"
          #editorContainer
@@ -482,6 +617,7 @@ export class NodeComponent implements OnInit, OnDestroy {
          (wheel)="onWheel($event)"
          (click)="onEditorClick($event)">
 
+      <!-- Workspace (panned + zoomed) -->
       <div class="workspace"
            #editorWorkspace
            [style.transform]="getWorkspaceTransform()"
@@ -499,36 +635,25 @@ export class NodeComponent implements OnInit, OnDestroy {
                     stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
             </marker>
           </defs>
-
           <g *ngFor="let conn of connections">
             <path [attr.d]="getConnectionPath(conn)"
                   [attr.stroke]="conn === selectedConnection ? '#007bff' : '#555'"
                   [attr.stroke-width]="conn === selectedConnection ? 3 : 2.5"
-                  fill="none"
-                  stroke-linecap="round"
-                  style="cursor:pointer"
-                  pointer-events="stroke"
-                  marker-end="url(#conn-arrow)"
+                  fill="none" stroke-linecap="round" style="cursor:pointer"
+                  pointer-events="stroke" marker-end="url(#conn-arrow)"
                   (contextmenu)="onConnectionRightClick($event, conn)"
                   (click)="onConnectionClick($event, conn)"/>
           </g>
-
           <path *ngIf="tempLine"
                 [attr.d]="getTempLinePath()"
-                stroke="#888"
-                stroke-dasharray="6 3"
-                fill="none"
-                stroke-width="2"
-                stroke-linecap="round"/>
+                stroke="#888" stroke-dasharray="6 3"
+                fill="none" stroke-width="2" stroke-linecap="round"/>
         </svg>
 
         <node-block
           *ngFor="let node of nodes; trackBy: trackById"
-          [id]="node.id"
-          [type]="node.type"
-          [header]="node.header"
-          [position]="node.position"
-          [selected]="selectedNodeId === node.id"
+          [id]="node.id" [type]="node.type" [header]="node.header"
+          [position]="node.position" [selected]="selectedNodeId === node.id"
           [fields]="node.fields || []"
           (startConnect)="beginConnection($event)"
           (completeConnect)="completeConnection(node.id, $event)"
@@ -536,21 +661,18 @@ export class NodeComponent implements OnInit, OnDestroy {
           (nodeClick)="onNodeClick($event)"
           (fieldChange)="onFieldChange()"
           (contextmenu)="onNodeRightClick($event, node.id)">
-
           <ng-container *ngIf="getNodeTemplate(node.type, node.subType) as tmpl"
                         [ngTemplateOutlet]="tmpl"
                         [ngTemplateOutletContext]="{
-                          label: node.label,
-                          header: node.header,
-                          type: node.type,
-                          subType: node.subType,
+                          label: node.label, header: node.header,
+                          type: node.type, subType: node.subType,
                           upstreamValues: getUpstreamValues(node.id)
                         }">
           </ng-container>
         </node-block>
       </div>
 
-      <!-- Context menu — inside container, outside workspace -->
+      <!-- Context menu (container-relative, outside workspace) -->
       <div *ngIf="contextMenu.visible"
            class="context-menu"
            [style.left.px]="contextMenu.x"
@@ -558,11 +680,34 @@ export class NodeComponent implements OnInit, OnDestroy {
         <button (click)="deleteTarget(); $event.stopPropagation()">🗑 Delete</button>
       </div>
 
+      <!-- Node picker popup -->
+      <node-picker
+        *ngIf="picker.visible"
+        [nodeType]="picker.forType"
+        [groups]="palette"
+        [anchorX]="picker.x"
+        [anchorY]="picker.y"
+        [containerW]="editorWidth"
+        [containerH]="editorHeight"
+        [style.position]="'absolute'"
+        [style.left.px]="picker.x"
+        [style.top.px]="picker.y"
+        [style.z-index]="99999"
+        (pick)="onPickerSelect($event)"
+        (close)="closePicker()">
+      </node-picker>
+
       <!-- Toolbar -->
       <div class="editor-toolbar">
-        <button class="toolbar-btn btn-process" (click)="addNode('process')">+ Process</button>
-        <button class="toolbar-btn btn-input"   (click)="addNode('input')">+ Input</button>
-        <button class="toolbar-btn btn-output"  (click)="addNode('output')">+ Output</button>
+        <button class="toolbar-btn btn-input"
+                [class.active]="picker.visible && picker.forType==='input'"
+                (click)="openPicker('input', $event)">+ Input ▾</button>
+        <button class="toolbar-btn btn-process"
+                [class.active]="picker.visible && picker.forType==='process'"
+                (click)="openPicker('process', $event)">+ Process ▾</button>
+        <button class="toolbar-btn btn-output"
+                [class.active]="picker.visible && picker.forType==='output'"
+                (click)="openPicker('output', $event)">+ Output ▾</button>
         <div class="toolbar-sep"></div>
         <span class="zoom-label">{{ (scale * 100) | number:'1.0-0' }}%</span>
         <button class="toolbar-btn" (click)="zoomIn()">＋</button>
@@ -577,63 +722,55 @@ export class NodeComponent implements OnInit, OnDestroy {
     </div>
   `,
   styles: [`
-    :host { display: block; }
+    :host { display:block; }
     .node-editor-container {
-      width: 100%; height: 100%;
-      background-color: #f5f5f5;
+      width:100%; height:100%;
+      background-color:#f5f5f5;
       background-image:
         linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px),
         linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px);
-      border: 1px solid #ccc;
-      position: relative;
-      user-select: none;
-      overflow: hidden;
-      cursor: grab;
-      outline: none;
-      box-sizing: border-box;
+      border:1px solid #ccc; position:relative; user-select:none;
+      overflow:hidden; cursor:grab; outline:none; box-sizing:border-box;
     }
-    .node-editor-container.is-panning { cursor: grabbing; }
-    .workspace { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
-    .connection-lines {
-      position: absolute; top: 0; left: 0;
-      pointer-events: none; z-index: 0; overflow: visible;
-    }
+    .node-editor-container.is-panning { cursor:grabbing; }
+    .workspace { position:absolute; left:0; top:0; transform-origin:0 0; }
+    .connection-lines { position:absolute; top:0; left:0; pointer-events:none; z-index:0; overflow:visible; }
     .context-menu {
-      position: absolute; background: #fff;
-      border: 1px solid #ddd; border-radius: 5px;
-      z-index: 9999; padding: 4px;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.15); min-width: 110px;
+      position:absolute; background:#fff; border:1px solid #ddd; border-radius:5px;
+      z-index:9999; padding:4px; box-shadow:0 4px 14px rgba(0,0,0,0.15); min-width:110px;
     }
     .context-menu button {
-      background: none; border: none; padding: 6px 12px;
-      width: 100%; text-align: left; cursor: pointer;
-      font-size: 0.82rem; border-radius: 3px;
+      background:none; border:none; padding:6px 12px; width:100%;
+      text-align:left; cursor:pointer; font-size:0.82rem; border-radius:3px;
     }
-    .context-menu button:hover { background: #f5f5f5; }
+    .context-menu button:hover { background:#f5f5f5; }
     .editor-toolbar {
-      position: absolute; top: 10px; right: 10px; z-index: 10;
-      display: flex; gap: 5px; align-items: center;
-      background: rgba(255,255,255,0.92); border: 1px solid #ddd;
-      border-radius: 6px; padding: 5px 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      position:absolute; top:10px; right:10px; z-index:1000;
+      display:flex; gap:5px; align-items:center;
+      background:rgba(255,255,255,0.92); border:1px solid #ddd;
+      border-radius:6px; padding:5px 8px;
+      box-shadow:0 2px 6px rgba(0,0,0,0.1);
     }
     .toolbar-btn {
-      background: #fff; border: 1px solid #ccc; border-radius: 4px;
-      padding: 3px 9px; font-size: 0.78rem; cursor: pointer;
-      white-space: nowrap; line-height: 1.6;
+      background:#fff; border:1px solid #ccc; border-radius:4px;
+      padding:3px 9px; font-size:0.78rem; cursor:pointer;
+      white-space:nowrap; line-height:1.6; transition:all 0.1s;
     }
-    .toolbar-btn:hover  { background: #f0f0f0; }
-    .toolbar-btn:active { transform: translateY(1px); }
-    .btn-process { border-color: #007bff; color: #007bff; }
-    .btn-input   { border-color: #28a745; color: #28a745; }
-    .btn-output  { border-color: #dc3545; color: #dc3545; }
-    .toolbar-sep { width: 1px; height: 18px; background: #ddd; margin: 0 2px; }
-    .zoom-label  { font-size: 0.75rem; color: #666; min-width: 34px; text-align: center; }
+    .toolbar-btn:hover  { background:#f0f0f0; }
+    .toolbar-btn:active { transform:translateY(1px); }
+    .toolbar-btn.active { box-shadow:inset 0 1px 3px rgba(0,0,0,0.15); }
+    .btn-process { border-color:#007bff; color:#007bff; }
+    .btn-input   { border-color:#28a745; color:#28a745; }
+    .btn-output  { border-color:#dc3545; color:#dc3545; }
+    .btn-process.active { background:#e8f0ff; }
+    .btn-input.active   { background:#e8f8ec; }
+    .btn-output.active  { background:#fdf0f0; }
+    .toolbar-sep { width:1px; height:18px; background:#ddd; margin:0 2px; }
+    .zoom-label  { font-size:0.75rem; color:#666; min-width:34px; text-align:center; }
     .editor-hint {
-      position: absolute; bottom: 8px; left: 50%;
-      transform: translateX(-50%); font-size: 0.7rem; color: #999;
-      background: rgba(255,255,255,0.7); padding: 2px 10px;
-      border-radius: 10px; pointer-events: none; white-space: nowrap;
+      position:absolute; bottom:8px; left:50%; transform:translateX(-50%);
+      font-size:0.7rem; color:#999; background:rgba(255,255,255,0.7);
+      padding:2px 10px; border-radius:10px; pointer-events:none; white-space:nowrap;
     }
   `],
   encapsulation: ViewEncapsulation.None,
@@ -645,6 +782,13 @@ export class NodeEditorComponent implements OnInit, OnDestroy {
 
   @Input() containerHeight = 400;
   @Input() nodes: NodeData[] = [];
+
+  /**
+   * Palette groups — defined in host component.ts.
+   * Each group belongs to one NodeType and contains NodePaletteItems.
+   * Clicking a toolbar button opens the picker filtered to that type.
+   */
+  @Input() palette: NodePaletteGroup[] = [];
 
   connections: Connection[] = [];
   tempLine: { start: Point; end: Point } | null = null;
@@ -659,6 +803,10 @@ export class NodeEditorComponent implements OnInit, OnDestroy {
            | { type: 'connection'; from: Connection['from']; to: Connection['to'] }
            | null;
   } = { visible: false, x: 0, y: 0, target: null };
+
+  /** Picker popup state */
+  picker: { visible: boolean; forType: NodeType; x: number; y: number } =
+    { visible: false, forType: 'process', x: 0, y: 0 };
 
   selectedNodeId: string | null = null;
   selectedConnection: Connection | null = null;
@@ -681,9 +829,7 @@ export class NodeEditorComponent implements OnInit, OnDestroy {
   ngOnInit() {}
 
   ngAfterContentInit() {
-    for (const tpl of this.templates) {
-      this.templateMap.set(tpl.type, tpl.template);
-    }
+    for (const tpl of this.templates) this.templateMap.set(tpl.type, tpl.template);
   }
 
   ngAfterViewInit() {
@@ -695,77 +841,81 @@ export class NodeEditorComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {}
 
-  // ── Data-flow: upstream value resolution ─────────────────────────────────
-  //
-  // Walk the connection graph backwards from nodeId, collect all ancestor nodes
-  // in topological order (closest ancestors first), then for each ancestor
-  // run each field through its transform(rawValue, alreadyResolvedMap) and
-  // accumulate into a flat map keyed as  "nodeId.fieldKey".
-  //
-  // The flat map is also available with short keys (just fieldKey) — the last
-  // ancestor that defines a given key wins, so closer ancestors override
-  // further ones. Both forms are available so templates can use either:
-  //   let-uv="upstreamValues"
-  //   uv['input1.tableName']   ← fully qualified (never ambiguous)
-  //   uv['tableName']          ← short key (convenient, may be overwritten)
+  // ── Picker ────────────────────────────────────────────────────────────────
 
-  getUpstreamValues(nodeId: string): Record<string, any> {
-    const ancestors = this.getAncestorsInOrder(nodeId);
-    const result: Record<string, any> = {};
+  openPicker(type: NodeType, event: MouseEvent) {
+    event.stopPropagation();
+    const btn = event.currentTarget as HTMLElement;
+    const btnRect       = btn.getBoundingClientRect();
+    const containerRect = this.containerRef.nativeElement.getBoundingClientRect();
 
-    for (const ancestor of ancestors) {
-      const node = this.nodes.find(n => n.id === ancestor);
-      if (!node?.fields?.length) continue;
+    const PANEL_W = 280;
+    const MARGIN  = 8;
 
-      for (const field of node.fields) {
-        const transformedValue = field.transform
-          ? field.transform(field.value, result)   // pass already-resolved map so transforms can read each other
-          : field.value;
+    // Preferred: left-align panel with button
+    let x = btnRect.left - containerRect.left;
+    // Clamp so right edge stays inside container
+    x = Math.min(x, containerRect.width - PANEL_W - MARGIN);
+    x = Math.max(MARGIN, x);
 
-        // Fully qualified key — never collides
-        result[`${node.id}.${field.key}`] = transformedValue;
-        // Short key — later (closer) ancestor overwrites earlier one
-        result[field.key] = transformedValue;
-      }
+    // Position just below the toolbar button
+    const y = btnRect.bottom - containerRect.top + 4;
+
+    // Toggle: same type → close
+    if (this.picker.visible && this.picker.forType === type) {
+      this.closePicker();
+      return;
     }
 
-    return result;
+    this.picker = { visible: true, forType: type, x, y };
+    this.cdr.markForCheck();
+  }
+
+  closePicker() {
+    this.picker = { ...this.picker, visible: false };
+    this.cdr.markForCheck();
   }
 
   /**
-   * Returns ancestor node IDs in breadth-first order starting from immediate
-   * parents, so direct parents' fields take precedence over grandparents' in
-   * the short-key map.
+   * Called when user clicks an item in the picker.
+   * Deep-clones the palette item's fields so each spawned node is independent.
    */
-  private getAncestorsInOrder(nodeId: string): string[] {
-    const visited = new Set<string>();
-    const queue: string[] = [nodeId];
-    const order: string[] = [];
+  onPickerSelect(item: NodePaletteItem) {
+    const id = Math.random().toString(36).substring(2, 9);
 
-    while (queue.length) {
-      const current = queue.shift()!;
-      // Find all nodes that connect INTO current
-      const parents = this.connections
-        .filter(c => c.to.nodeId === current)
-        .map(c => c.from.nodeId);
+    // Place at centre of visible viewport
+    const containerEl = this.containerRef?.nativeElement;
+    const cw = containerEl ? containerEl.clientWidth  : 800;
+    const ch = containerEl ? containerEl.clientHeight : 400;
+    const sameType = this.nodes.filter(n => n.type === item.type).length;
+    const NODE_W = 200, NODE_H = 100, GAP = 20;
+    const viewLeft = -this.workspaceOffset.x / this.scale;
+    const viewTop  = -this.workspaceOffset.y / this.scale;
+    const visibleWidth = cw / this.scale;
+    const nodesPerRow  = Math.max(1, Math.floor((visibleWidth - GAP) / (NODE_W + GAP)));
+    const col = sameType % nodesPerRow;
+    const row = Math.floor(sameType / nodesPerRow);
+    const margin = 20 / this.scale;
+    const position = {
+      x: viewLeft + margin + col * (NODE_W + GAP),
+      y: viewTop  + margin + row * (NODE_H + GAP),
+    };
 
-      for (const p of parents) {
-        if (!visited.has(p)) {
-          visited.add(p);
-          order.push(p);
-          queue.push(p);
-        }
-      }
-    }
+    // Deep-clone fields so each node instance has independent values
+    const fields: NodeFieldDef[] = (item.fields ?? []).map(f => ({ ...f }));
 
-    // Reverse so furthest ancestors come first; direct parents come last
-    // (so direct parents' short keys overwrite grandparents')
-    return order.reverse();
-  }
+    const newNode: NodeData = {
+      id,
+      label: item.label,
+      header: item.header,
+      type: item.type,
+      subType: item.subType,
+      position,
+      fields,
+    };
 
-  // Called whenever any field value changes — forces re-evaluation of
-  // downstream nodes' upstreamValues in the template
-  onFieldChange() {
+    this.nodes = [...this.nodes, newNode];
+    this.closePicker();
     this.cdr.markForCheck();
   }
 
@@ -777,6 +927,7 @@ export class NodeEditorComponent implements OnInit, OnDestroy {
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
 
     if (event.key === 'Escape') {
+      if (this.picker.visible) { this.closePicker(); return; }
       if (this.tempLine) { this.tempLine = null; this.connectionStart = null; }
       this.selectedNodeId = null;
       this.selectedConnection = null;
@@ -784,13 +935,8 @@ export class NodeEditorComponent implements OnInit, OnDestroy {
       this.cdr.markForCheck();
     }
     if (event.key === 'Delete' || event.key === 'Backspace') {
-      if (this.selectedNodeId) {
-        this.deleteNodeById(this.selectedNodeId);
-        this.selectedNodeId = null;
-      } else if (this.selectedConnection) {
-        this.deleteConnection(this.selectedConnection);
-        this.selectedConnection = null;
-      }
+      if (this.selectedNodeId) { this.deleteNodeById(this.selectedNodeId); this.selectedNodeId = null; }
+      else if (this.selectedConnection) { this.deleteConnection(this.selectedConnection); this.selectedConnection = null; }
       this.cdr.markForCheck();
     }
   }
@@ -798,24 +944,17 @@ export class NodeEditorComponent implements OnInit, OnDestroy {
   // ── Selection ─────────────────────────────────────────────────────────────
 
   onNodeClick(nodeId: string) {
-    this.selectedNodeId = nodeId;
-    this.selectedConnection = null;
-    this.cdr.markForCheck();
+    this.selectedNodeId = nodeId; this.selectedConnection = null; this.cdr.markForCheck();
   }
-
   onConnectionClick(event: MouseEvent, conn: Connection) {
-    event.stopPropagation();
-    this.selectedConnection = conn;
-    this.selectedNodeId = null;
-    this.cdr.markForCheck();
+    event.stopPropagation(); this.selectedConnection = conn; this.selectedNodeId = null; this.cdr.markForCheck();
   }
-
   onEditorClick(event: MouseEvent) {
     const target = event.target as HTMLElement;
-    if (!target.closest('.node-block') && !target.closest('.context-menu')) {
-      this.selectedNodeId = null;
-      this.selectedConnection = null;
+    if (!target.closest('.node-block') && !target.closest('.context-menu') && !target.closest('node-picker')) {
+      this.selectedNodeId = null; this.selectedConnection = null;
       this.contextMenu.visible = false;
+      this.closePicker();
       this.cdr.markForCheck();
     }
   }
@@ -827,12 +966,10 @@ export class NodeEditorComponent implements OnInit, OnDestroy {
     const delta = event.deltaY > 0 ? -0.08 : 0.08;
     const newScale = Math.min(this.MAX_SCALE, Math.max(this.MIN_SCALE, this.scale + delta));
     if (newScale === this.scale) return;
-
     const containerRect = this.containerRef.nativeElement.getBoundingClientRect();
     const mouseX = event.clientX - containerRect.left;
     const mouseY = event.clientY - containerRect.top;
     const ratio = newScale / this.scale;
-
     this.workspaceOffset = {
       x: mouseX - ratio * (mouseX - this.workspaceOffset.x),
       y: mouseY - ratio * (mouseY - this.workspaceOffset.y),
@@ -847,21 +984,14 @@ export class NodeEditorComponent implements OnInit, OnDestroy {
     this.scale = Math.min(this.MAX_SCALE, Math.max(this.MIN_SCALE, s));
     this.cdr.markForCheck();
   }
-  resetView() {
-    this.scale = 1;
-    this.workspaceOffset = { x: 0, y: 0 };
-    this.cdr.markForCheck();
-  }
+  resetView() { this.scale = 1; this.workspaceOffset = { x: 0, y: 0 }; this.cdr.markForCheck(); }
 
   // ── Pan ───────────────────────────────────────────────────────────────────
 
   startPan(event: MouseEvent) {
     const target = event.target as HTMLElement;
-    if (
-      target.closest('.node-block') ||
-      target.closest('.context-menu') ||
-      target.classList.contains('connector')
-    ) return;
+    if (target.closest('.node-block') || target.closest('.context-menu') ||
+        target.closest('node-picker')  || target.classList.contains('connector')) return;
     this.isPanning = true;
     this.panStart      = { x: event.clientX, y: event.clientY };
     this.initialOffset = { ...this.workspaceOffset };
@@ -891,9 +1021,7 @@ export class NodeEditorComponent implements OnInit, OnDestroy {
   onEditorMouseUp(event: MouseEvent) {
     const target = event.target as HTMLElement;
     if (!target.classList.contains('connector') && this.tempLine) {
-      this.tempLine = null;
-      this.connectionStart = null;
-      this.cdr.markForCheck();
+      this.tempLine = null; this.connectionStart = null; this.cdr.markForCheck();
     }
     this.endPan();
   }
@@ -912,39 +1040,30 @@ export class NodeEditorComponent implements OnInit, OnDestroy {
     if (!this.connectionStart) return;
     const from = { nodeId: this.connectionStart.nodeId, anchor: this.connectionStart.anchor };
     const to   = { nodeId: toNodeId, anchor: toAnchor };
-
     if (from.nodeId === to.nodeId) { this.cancelConnection(); return; }
     if (from.anchor !== 'right' || to.anchor !== 'left') { this.cancelConnection(); return; }
-
     const exists = this.connections.some(
       c => c.from.nodeId === from.nodeId && c.from.anchor === from.anchor
         && c.to.nodeId   === to.nodeId   && c.to.anchor   === to.anchor
     );
     if (exists) { this.cancelConnection(); return; }
-
     this.connections = [...this.connections, { from, to }];
     this.cancelConnection();
   }
 
-  private cancelConnection() {
-    this.tempLine = null;
-    this.connectionStart = null;
-    this.cdr.markForCheck();
-  }
+  private cancelConnection() { this.tempLine = null; this.connectionStart = null; this.cdr.markForCheck(); }
 
   // ── Context menu ──────────────────────────────────────────────────────────
 
   onNodeRightClick(event: MouseEvent, nodeId: string) {
-    event.preventDefault();
-    event.stopPropagation();
+    event.preventDefault(); event.stopPropagation();
     const pos = this.viewportToContainer(event.clientX, event.clientY);
     this.contextMenu = { visible: true, x: pos.x, y: pos.y, target: { type: 'node', nodeId } };
     this.cdr.markForCheck();
   }
 
   onConnectionRightClick(event: MouseEvent, conn: Connection) {
-    event.preventDefault();
-    event.stopPropagation();
+    event.preventDefault(); event.stopPropagation();
     const pos = this.viewportToContainer(event.clientX, event.clientY);
     this.contextMenu = { visible: true, x: pos.x, y: pos.y, target: { type: 'connection', from: conn.from, to: conn.to } };
     this.cdr.markForCheck();
@@ -952,88 +1071,74 @@ export class NodeEditorComponent implements OnInit, OnDestroy {
 
   deleteTarget() {
     if (!this.contextMenu.target) return;
-    if (this.contextMenu.target.type === 'node') {
-      this.deleteNodeById(this.contextMenu.target.nodeId);
-    } else if (this.contextMenu.target.type === 'connection') {
-      this.deleteConnection(this.contextMenu.target);
-    }
+    if (this.contextMenu.target.type === 'node') this.deleteNodeById(this.contextMenu.target.nodeId);
+    else if (this.contextMenu.target.type === 'connection') this.deleteConnection(this.contextMenu.target);
     this.contextMenu.visible = false;
     this.cdr.markForCheck();
   }
 
   @HostListener('document:click')
   hideContextMenu() {
-    if (this.contextMenu.visible) {
-      this.contextMenu.visible = false;
-      this.cdr.markForCheck();
-    }
+    if (this.contextMenu.visible) { this.contextMenu.visible = false; this.cdr.markForCheck(); }
   }
 
   // ── Delete helpers ────────────────────────────────────────────────────────
 
   private deleteNodeById(nodeId: string) {
     this.nodes = this.nodes.filter(n => n.id !== nodeId);
-    this.connections = this.connections.filter(
-      c => c.from.nodeId !== nodeId && c.to.nodeId !== nodeId
-    );
+    this.connections = this.connections.filter(c => c.from.nodeId !== nodeId && c.to.nodeId !== nodeId);
     if (this.selectedNodeId === nodeId) this.selectedNodeId = null;
     this.cdr.markForCheck();
   }
 
   private deleteConnection(target: { from: Connection['from']; to: Connection['to'] }) {
     this.connections = this.connections.filter(
-      c => !(c.from.nodeId === target.from.nodeId
-          && c.from.anchor  === target.from.anchor
-          && c.to.nodeId    === target.to.nodeId
-          && c.to.anchor    === target.to.anchor)
+      c => !(c.from.nodeId === target.from.nodeId && c.from.anchor === target.from.anchor
+          && c.to.nodeId   === target.to.nodeId   && c.to.anchor   === target.to.anchor)
     );
     if (this.selectedConnection
       && this.selectedConnection.from.nodeId === target.from.nodeId
-      && this.selectedConnection.to.nodeId   === target.to.nodeId) {
-      this.selectedConnection = null;
+      && this.selectedConnection.to.nodeId   === target.to.nodeId) this.selectedConnection = null;
+    this.cdr.markForCheck();
+  }
+
+  // ── Data-flow: upstream value resolution ─────────────────────────────────
+
+  getUpstreamValues(nodeId: string): Record<string, any> {
+    const ancestors = this.getAncestorsInOrder(nodeId);
+    const result: Record<string, any> = {};
+    for (const ancestor of ancestors) {
+      const node = this.nodes.find(n => n.id === ancestor);
+      if (!node?.fields?.length) continue;
+      for (const field of node.fields) {
+        const transformed = field.transform ? field.transform(field.value, result) : field.value;
+        result[`${node.id}.${field.key}`] = transformed;
+        result[field.key] = transformed;
+      }
     }
-    this.cdr.markForCheck();
+    return result;
   }
 
-  // ── Nodes ─────────────────────────────────────────────────────────────────
-
-  addNode(type: NodeData['type']) {
-    const id = Math.random().toString(36).substring(2, 9);
-    const label = `${type.charAt(0).toUpperCase() + type.slice(1)} Node`;
-
-    const containerEl = this.containerRef?.nativeElement;
-    const cw = containerEl ? containerEl.clientWidth  : 800;
-    const ch = containerEl ? containerEl.clientHeight : 400;
-
-    const viewLeft = -this.workspaceOffset.x / this.scale;
-    const viewTop  = -this.workspaceOffset.y / this.scale;
-
-    const NODE_W = 200;
-    const NODE_H = 100;
-    const GAP    = 20;
-
-    const sameType    = this.nodes.filter(n => n.type === type).length;
-    const visibleWidth = cw / this.scale;
-    const nodesPerRow  = Math.max(1, Math.floor((visibleWidth - GAP) / (NODE_W + GAP)));
-    const col = sameType % nodesPerRow;
-    const row = Math.floor(sameType / nodesPerRow);
-
-    const margin = 20 / this.scale;
-    const position = {
-      x: viewLeft + margin + col * (NODE_W + GAP),
-      y: viewTop  + margin + row * (NODE_H + GAP),
-    };
-
-    this.nodes = [...this.nodes, { id, label, type, position, header: label, fields: [] }];
-    this.cdr.markForCheck();
+  private getAncestorsInOrder(nodeId: string): string[] {
+    const visited = new Set<string>();
+    const queue = [nodeId];
+    const order: string[] = [];
+    while (queue.length) {
+      const current = queue.shift()!;
+      for (const p of this.connections.filter(c => c.to.nodeId === current).map(c => c.from.nodeId)) {
+        if (!visited.has(p)) { visited.add(p); order.push(p); queue.push(p); }
+      }
+    }
+    return order.reverse();
   }
+
+  onFieldChange() { this.cdr.markForCheck(); }
+
+  // ── Node position ─────────────────────────────────────────────────────────
 
   onNodePositionChange(evt: { nodeId: string; position: Point }) {
     const node = this.nodes.find(n => n.id === evt.nodeId);
-    if (node) {
-      node.position = evt.position;
-      this.cdr.markForCheck();
-    }
+    if (node) { node.position = evt.position; this.cdr.markForCheck(); }
   }
 
   trackById(_: number, node: NodeData) { return node.id; }
@@ -1052,10 +1157,7 @@ export class NodeEditorComponent implements OnInit, OnDestroy {
   }
 
   getConnectionPath(conn: Connection): string {
-    return this.buildBezier(
-      this.getAnchorPosition(conn.from),
-      this.getAnchorPosition(conn.to)
-    );
+    return this.buildBezier(this.getAnchorPosition(conn.from), this.getAnchorPosition(conn.to));
   }
 
   getTempLinePath(): string {
@@ -1069,7 +1171,7 @@ export class NodeEditorComponent implements OnInit, OnDestroy {
     return `M ${start.x},${start.y} C ${start.x + dx},${start.y} ${end.x - dx},${end.y} ${end.x},${end.y}`;
   }
 
-  // ── Transform / workspace size ────────────────────────────────────────────
+  // ── Transform / grid ──────────────────────────────────────────────────────
 
   getWorkspaceTransform() {
     return `translate(${this.workspaceOffset.x}px, ${this.workspaceOffset.y}px) scale(${this.scale})`;
@@ -1088,10 +1190,7 @@ export class NodeEditorComponent implements OnInit, OnDestroy {
   }
 
   getWorkspaceSize() {
-    return {
-      width:  this.workspaceBounds.maxX - this.workspaceBounds.minX,
-      height: this.workspaceBounds.maxY - this.workspaceBounds.minY,
-    };
+    return { width: this.workspaceBounds.maxX - this.workspaceBounds.minX, height: this.workspaceBounds.maxY - this.workspaceBounds.minY };
   }
 
   getNodeTemplate(type: string, subType?: string): TemplateRef<any> | null {
@@ -1101,10 +1200,7 @@ export class NodeEditorComponent implements OnInit, OnDestroy {
   private viewportToWorkspace(clientX: number, clientY: number): Point {
     const wsRect = this.workspaceRef?.nativeElement.getBoundingClientRect();
     if (!wsRect) return { x: clientX, y: clientY };
-    return {
-      x: (clientX - wsRect.left) / this.scale,
-      y: (clientY - wsRect.top)  / this.scale,
-    };
+    return { x: (clientX - wsRect.left) / this.scale, y: (clientY - wsRect.top) / this.scale };
   }
 
   private viewportToContainer(clientX: number, clientY: number): Point {
@@ -1119,7 +1215,7 @@ export class NodeEditorComponent implements OnInit, OnDestroy {
 // ─────────────────────────────────────────────────────────────────────────────
 
 @NgModule({
-  imports:  [CommonModule, NodeTemplateDirective, NodeEditorComponent, NodeFieldsComponent],
-  exports:  [NodeTemplateDirective, NodeEditorComponent, NodeFieldsComponent],
+  imports:  [CommonModule, NodeTemplateDirective, NodeEditorComponent, NodeFieldsComponent, NodePickerComponent],
+  exports:  [NodeTemplateDirective, NodeEditorComponent, NodeFieldsComponent, NodePickerComponent],
 })
 export class NodeEditorModule {}
