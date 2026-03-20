@@ -270,9 +270,10 @@
 
 .tooltip-box {
   position: absolute;
-  z-index: 9999;
+  z-index: 9999999;
   pointer-events: none;
   animation: fadeIn 0.15s ease-in-out;
+  display: inline-block;
 }
 
 .tooltip-content {
@@ -284,6 +285,7 @@
   font-size: 13px;
   max-width: 200px;
   text-align: center;
+   display: inline-block;
 }
 
 .tooltip-arrow {
@@ -305,7 +307,8 @@
 }
 
 [data-arrow='left'] .tooltip-arrow {
-  top: 50%; right: -5px; transform: translateY(-50%);
+  top: 50%; 
+  right: -5px; transform: translateY(-50%);
   border-width: 5px 0 5px 5px;
   border-color: transparent transparent transparent #333;
 }

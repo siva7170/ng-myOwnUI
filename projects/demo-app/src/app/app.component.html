@@ -4,6 +4,7 @@
     <ul>
       <li (click)="onMenuClick('button')">Button</li>
       <li (click)="onMenuClick('node-editor')">Node Editor</li>
+      <li (click)="onMenuClick('radiobtn')">Radio Button</li>
       <li (click)="onMenuClick('toaster')">Toaster</li>
       <li (click)="onMenuClick('tooltip')">Tooltip</li>
     </ul>
@@ -12,6 +13,41 @@
     {{ activeMenu ? 'Active Menu: ' + activeMenu : 'Select a menu' }}
     <app-button *ngIf="activeMenu === 'button'"></app-button>
     <app-node-editor *ngIf="activeMenu === 'node-editor'"></app-node-editor>
+    <div class="" *ngIf="activeMenu === 'radiobtn'">
+      <div class="mou-radio-btn-container">
+        <div class="mou-radio-btn checked">
+          <div class="mou-radio-btn-icon"></div>
+          <div class="mou-radio-btn-label">Hello</div>
+        </div>
+      </div>
+      <br/>
+      <div class="mou-radio-btn-container">
+        <div class="mou-radio-btn">
+          <div class="mou-radio-btn-icon"></div>
+          <div class="mou-radio-btn-label">Hello 2</div>
+        </div>
+      </div>
+      <br/>
+      <div class="mou-radio-btn-container">
+        <div class="mou-radio-btn">
+          <div class="mou-radio-btn-icon"></div>
+          <div class="mou-radio-btn-label">Hello 2</div>
+        </div>
+      </div><br/>
+      <div class="mou-radio-btn-container">
+        <div class="mou-radio-btn disabled">
+          <div class="mou-radio-btn-icon"></div>
+          <div class="mou-radio-btn-label">Hello 2</div>
+        </div>
+      </div>
+      <br/>
+      <div class="mou-radio-btn-container">
+        <div class="mou-radio-btn disabled checked">
+          <div class="mou-radio-btn-icon"></div>
+          <div class="mou-radio-btn-label">Hello 2</div>
+        </div>
+      </div>
+    </div>
     <app-toaster *ngIf="activeMenu === 'toaster'"></app-toaster>
     <app-tooltip *ngIf="activeMenu === 'tooltip'"></app-tooltip>
 </div>

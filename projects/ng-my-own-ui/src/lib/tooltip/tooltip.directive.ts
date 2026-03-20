@@ -26,7 +26,12 @@ export class TooltipDirective {
     const tooltipEl = this.tooltipRef.location.nativeElement;
 
     document.body.appendChild(tooltipEl);
-    this.setTooltipPosition(hostRect, tooltipEl);
+    setTimeout(() => {
+      requestAnimationFrame(() => {
+        this.setTooltipPosition(hostRect, tooltipEl);
+      });
+      
+    }, 0);
   }
 
   @HostListener('mouseleave')
@@ -49,26 +54,30 @@ export class TooltipDirective {
 
     const preferred = this.position === 'auto' ? this.autoDetectPosition(hostRect, tooltipRect) : this.position;
 
+    console.log('Preferred position:', preferred);
+
     switch (preferred) {
       case 'top':
         top = hostRect.top - tooltipRect.height - spacing;
         left = hostRect.left + (hostRect.width - tooltipRect.width) / 2;
-        arrowDir = 'bottom';
+        arrowDir = 'top';
+        console.log('Top position:', { top, left }, 'HostRect:', hostRect, 'TooltipRect:', tooltipRect);
         break;
       case 'bottom':
         top = hostRect.bottom + spacing;
         left = hostRect.left + (hostRect.width - tooltipRect.width) / 2;
-        arrowDir = 'top';
+        arrowDir = 'bottom';
         break;
       case 'left':
         top = hostRect.top + (hostRect.height - tooltipRect.height) / 2;
         left = hostRect.left - tooltipRect.width - spacing;
-        arrowDir = 'right';
+        arrowDir = 'left';
         break;
       case 'right':
         top = hostRect.top + (hostRect.height - tooltipRect.height) / 2;
         left = hostRect.right + spacing;
-        arrowDir = 'left';
+        arrowDir = 'right';
+        console.log('Top position:', { top, left }, 'HostRect:', hostRect, 'TooltipRect:', tooltipRect);
         break;
     }
 
@@ -83,6 +92,8 @@ export class TooltipDirective {
     const spaceLeft = host.left;
     const spaceRight = window.innerWidth - host.right;
 
+    console.log('hostRect:', host);
+
     const max = Math.max(spaceTop, spaceBottom, spaceLeft, spaceRight);
 
     if (max === spaceBottom) return 'bottom';
@@ -90,4 +101,37 @@ export class TooltipDirective {
     if (max === spaceRight) return 'right';
     return 'left';
   }
+
+//   private autoDetectPosition(host: DOMRect, tooltip: DOMRect): 'top' | 'bottom' | 'left' | 'right' {
+//   // Calculate available space relative to viewport
+//   const spaceTop = host.top;
+//   const spaceBottom = window.innerHeight - host.bottom;
+//   const spaceLeft = host.left;
+//   const spaceRight = window.innerWidth - host.right;
+
+//   console.log('Viewport spaces — Top:', spaceTop, 'Bottom:', spaceBottom, 'Left:', spaceLeft, 'Right:', spaceRight);
+
+//   // First, prefer positions that can actually fit the tooltip
+//   const fitsTop = tooltip.height + 8 < spaceTop;
+//   const fitsBottom = tooltip.height + 8 < spaceBottom;
+//   const fitsLeft = tooltip.width + 8 < spaceLeft;
+//   const fitsRight = tooltip.width + 8 < spaceRight;
+
+//     console.log('Fits — Top:', fitsTop, 'Bottom:', fitsBottom, 'Left:', fitsLeft, 'Right:', fitsRight);
+
+//   // Pick the first direction that fits (you can adjust priority order)
+//   if (fitsTop) return 'top';
+//   if (fitsBottom) return 'bottom';
+//   if (fitsRight) return 'right';
+//   if (fitsLeft) return 'left';
+
+//   // If none fit, fallback to the largest available space
+//   const maxSpace = Math.max(spaceTop, spaceBottom, spaceLeft, spaceRight);
+
+//   if (maxSpace === spaceBottom) return 'bottom';
+//   if (maxSpace === spaceTop) return 'top';
+//   if (maxSpace === spaceRight) return 'right';
+//   return 'left';
+// }
+
 }

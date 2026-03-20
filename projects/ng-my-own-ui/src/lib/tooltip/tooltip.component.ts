@@ -4,6 +4,7 @@ import { Component, Input, HostBinding } from '@angular/core';
   selector: 'mou-tooltip',
   templateUrl: './tooltip.component.html',
  // styleUrls: ['./tooltip.component.scss']
+  standalone: true
 })
 export class TooltipComponent {
   @Input() text = '';
